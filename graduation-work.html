@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script>
+        //枠の設定
+        const width = 320;
+        const height = 480;
+        //一つのブロックについてのサイズ設定
+        const blockInfoList = [];
+        const blockWidth = width / 10;
+        const blockHeight = blockWidth / 2;
+        //下の跳ね返す板
+        const heroWidth = blockWidth * 2;
+        const heroHeight = heroWidth / 5;
+        let heroDiv = null;
+        let heroLeft = width / 2 - heroWidth / 2;
+        let heroTop = height * 0.8;
+        //ボールのスタイル
+        const ballSize = 8;
+        let ballLeft = width / 2 - ballSize / 2;
+        let ballTop = height / 2;
+        let ballDiv = null;
+        //ボールのアクションについての設定
+        let ballSpeed = 5;
+        let ballDx = 0;
+        let ballDy = ballSpeed;
+        let gameover = false;
+
+        let messageDiv = null;
+        let blockCount = 0;
+
+        //板の最大最小の位置
+        const heroMinleft = 0;
+        const heroMaxLeft = width - heroWidth;
+        //初期設定
+        const init = () => {
+            //ブロックの生成
+            const container = document.createElement("div");
+            document.body.appendChild(container);
+            container.style.position = "absolute";
+            container.style.width = `${width}px`;
+            container.style.height = `${height}px`;
+            container.style.backgroundColor = "#000";
+            //生成されたブロックのスタイル設定
+            let colorIndex = 1; //ブロックの殻をつける際に用いる
+            //この繰り返し文の意味：y=0の時、x=123...となり上段からブロックからできていくイメージ。
+            for (let y = 0; y < 10; y++) {
+                for (let x = 0; x < 9; x++) {
+                    blockCount++;
+                    const div = document.createElement("div");
+                    container.appendChild(div);
+
+                    const px = (x + 0.5) * blockWidth; //これと下の0.5や1を足しているのは連鎖を作るためらしい。もしこれがないと通り過ぎてしまう。
+                    const py = (y + 1) * blockHeight; //また、右と上があく。
+                    div.style.position = "absolute";
+                    div.style.left = `${px}px`;
+                    div.style.top = `${py}px`;
+                    div.style.backgroundColor = `hsl(${(360 / 8) * (colorIndex % 8)}deg, 100%, 50%)`; //hslは色相と彩度と明度が順番になっている。彩度と明度はそれぞれ50％が真ん中。彩度が高くなると黒からその色に強くなっていく。明度は高くなると白くなっていく。
+                    div.style.boxSizing = "border-box";
+                    div.style.border = `3px ridge hsl(${(360 / 8) * (colorIndex++ % 8)}deg, 100%, 30%)`;
+                    div.style.width = `${blockWidth}px`;
+                    div.style.height = `${blockHeight}px`;
+                    blockInfoList.push({ //配列blockInfoListに４つの要素の追加
+                        px,
+                        py,
+                        available: true,
+                        element: div
+                    });
+                }
+            }
+            //下の跳ね返す板のアペンド
+            heroDiv = document.createElement("div");
+            container.appendChild(heroDiv);
+            //ボールのアペンド
+            ballDiv = document.createElement("div");
+            container.appendChild(ballDiv);
+
+            let originalX = 0;
+            let originalHeroLeft = 0;
+            container.onpointerdown = (e) => { //要素が長押しされたときに用いる。eはクリックされたりなどのイベントが起きた要素の情報などをオブジェクトとしてゲットできるイメージ。今回はコンテイナー（クリエイトエレメントdivで定義された）がクリックされたときにその情報を返す。
+                e.preventDefault(); //サブミットなど、その要素が本来持つ動作を止める。
+                originalX = e.pageX;
+                originalHeroLeft = heroLeft;
+                console.log(e.pageX,heroLeft)
+            };
+            container.onpointermove = (e) => {
+                e.preventDefault();
+                if (originalX) {
+                    console.log(e.pageX)
+                    heroLeft = originalHeroLeft + (e.pageX - originalX) * 2;
+                    if(heroLeft <= heroMinleft){
+                        heroLeft = heroMinleft;
+                    }
+                    if(heroLeft >= heroMaxLeft){
+                        heroLeft = heroMaxLeft;
+                    }
+                    update();
+                }
+            };
+            container.onpointerup = () => {
+                originalX = 0;
+            };
+            //これはクリアかゲームオーバーかを表示させるためのもの。
+            messageDiv = document.createElement("div");
+            container.appendChild(messageDiv);
+            messageDiv.style.position = "absolute";
+            messageDiv.style.left = 0;
+            messageDiv.style.top = 0;
+            messageDiv.style.right = 0;
+            messageDiv.style.bottom = 0;
+            messageDiv.style.display = "flex";
+            messageDiv.style.alignItems = "center";
+            messageDiv.style.justifyContent = "center";
+            messageDiv.style.color = "#fff";
+            messageDiv.style.fontSize = "50px";
+            messageDiv.style.fontFamily = "sans-serif";
+        };
+
+        const update = () => {
+            if (gameover) { //上でゲームオーバーはフォルスと定義されている。
+                return;
+            }
+            heroDiv.style.position = "absolute";
+            heroDiv.style.left = `${heroLeft}px`;
+            heroDiv.style.top = `${heroTop}px`;
+            heroDiv.style.width = `${heroWidth}px`;
+            heroDiv.style.height = `${heroHeight}px`;
+            heroDiv.style.backgroundColor = "#fff";
+            heroDiv.style.borderRadius = "50% 50% 0 0";
+
+            ballDiv.style.position = "absolute";
+            ballDiv.style.left = `${ballLeft}px`;
+            ballDiv.style.top = `${ballTop}px`;
+            ballDiv.style.width = `${ballSize}px`;
+            ballDiv.style.height = `${ballSize}px`;
+            ballDiv.style.backgroundColor = "#fff";
+            ballDiv.style.borderRadius = "50%";
+
+            if (ballTop > height) {
+                gameover = true;
+                messageDiv.style.color = "#c00";
+                messageDiv.textContent = "game over";
+            }
+            if (blockCount === 0) {
+                gameover = true;
+                messageDiv.style.color = "#cc0";
+                messageDiv.textContent = "CLEAR";
+            }
+        };
+        //ここはボールの跳ね返りをしている。
+        //ここからは完全に写しただけで微妙なところが多い。知らない構文などは一応調べた。
+        const collisionCheck = () => {
+            const bx = ballLeft + ballSize / 2; //÷2をしているのはボールを点として扱うため。
+            const by = ballTop + ballSize / 2;
+            if (heroLeft < bx && bx < heroLeft + heroWidth) {
+                if (heroTop < by && by < heroTop + heroHeight) {
+                    if (ballDy > 0) {
+                        const ratio = ((bx - heroLeft) / heroWidth) * 2 - 1;
+                        const angle = 60 * ratio;
+                        ballDy = -Math.cos((angle * Math.PI) / 180) * ballSpeed;
+                        ballDx = Math.sin((angle * Math.PI) / 180) * ballSpeed;
+                    }
+                }
+            }
+            //ボールの当たり判定
+            if ((bx < 0 && ballDx < 0) || (bx > width && ballDx > 0)) {
+                ballDx *= -1;
+            }
+            if (by < 0 && ballDy < 0) {
+                ballDy *= -1;
+            }
+            for (const blockInfo of blockInfoList) {
+                const {
+                    px,
+                    py,
+                    available,
+                    element
+                } = blockInfo;
+                if (!available) {
+                    continue;
+                }
+                if (px < bx && bx < px + blockWidth) {
+                    if (py < by && by < py + blockHeight) {
+                        const gl = bx - px;
+                        const gr = px + blockWidth - bx;
+                        const gt = by - py;
+                        const gb = py + blockHeight - by;
+                        const g = Math.min(gl, gr, gt, gb);
+                        if (g === gl || g === gr) {
+                            ballDx *= -1; //直線の直行条件を用いている。
+                        } else {
+                            ballDy *= -1;
+                        }
+                        element.style.display = "none"; //ブロックを消すスタイル。
+                        blockInfo.available = false;
+                        blockCount--;
+                    }
+                }
+            }
+        };
+
+        window.onload = () => {
+            init(); //最初の状態を作る。
+            update(); //処理が始まった後。
+            const tick = () => {
+                if (!gameover) {
+                    setTimeout(tick, 16);
+                }
+                ballLeft += ballDx;
+                ballTop += ballDy;
+                collisionCheck();
+                update();
+            };
+            tick();
+        };
+    </script>
+</body>
+
+</html>
